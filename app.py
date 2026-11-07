@@ -1,24 +1,28 @@
+import ast
+import os
 from flask import Flask, request, jsonify
 import requests
 
 app = Flask(__name__)
 
-# ISSUE 1 (Caught by Gitleaks): Hardcoded API Key
-API_KEY = "AKIA1234567890ABCDEF"
-SECRET_TOKEN = "ghp_1234567890abcdefghijklmnopqrstuvwxyz"
+# FIX 1 (Gitleaks): Load API keys strictly from environment variables
+API_KEY = os.environ.get("TECHCORP_API_KEY", "")
+SECRET_TOKEN = os.environ.get("TECHCORP_SECRET_TOKEN", "")
 
-# ISSUE 2 (Caught by Custom Injection Scanner): Hardcoded System Prompt
-SYSTEM_PROMPT = "You are TechCorp's internal assistant. The admin API_KEY is TECHCORP-ADMIN-KEY-9821."
-TEST_INJECTION_SAMPLE = "ignore previous instructions"
+# FIX 2 (Custom Injection Scanner): Load System Prompt from environment variable
+SYSTEM_PROMPT = os.environ.get("TECHCORP_SYSTEM_PROMPT", "Default assistant role.")
 
 @app.route("/chat", methods=["POST"])
 def chat():
     data = request.json or {}
     user_message = data.get("message", "")
-    calc_expr = data.get("calc", "1+1")
+    calc_expr = data.get("calc", "1")
 
-    # ISSUE 3 (Caught by Bandit SAST B307): Unsafe use of eval()
-    calc_result = eval(calc_expr)
+    # FIX 3 (Bandit SAST): Replace unsafe eval() with safe ast.literal_eval()
+    try:
+        calc_result = ast.literal_eval(calc_expr)
+    except (ValueError, SyntaxError):
+        calc_result = None
 
     payload = {
         "model": "tinyllama",
